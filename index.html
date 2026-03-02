@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Chat LLM Local</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      background: #111;
+      color: #eee;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    #messages {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .message {
+      max-width: 80%;
+      padding: 12px 16px;
+      border-radius: 18px;
+      line-height: 1.4;
+      word-wrap: break-word;
+    }
+    .user {
+      align-self: flex-end;
+      background: #007aff;
+      color: white;
+    }
+    .assistant {
+      align-self: flex-start;
+      background: #333;
+      color: #eee;
+    }
+    #input-area {
+      padding: 12px;
+      background: #222;
+      border-top: 1px solid #444;
+      display: flex;
+      gap: 8px;
+    }
+    #prompt {
+      flex: 1;
+      padding: 12px;
+      border: 1px solid #444;
+      border-radius: 24px;
+      background: #333;
+      color: white;
+      font-size: 16px;
+      outline: none;
+    }
+    button {
+      padding: 12px 20px;
+      background: #007aff;
+      color: white;
+      border: none;
+      border-radius: 24px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.5;
+    }
+    .typing {
+      font-style: italic;
+      color: #888;
+      align-self: flex-start;
+      padding: 12px 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="messages"></div>
+
+  <div id="input-area">
+    <input id="prompt" type="text" placeholder="Tape ton message..." autocomplete="off"/>
+    <button id="send">Envoyer</button>
+  </div>
+
+  <script>
+    const OLLAMA_URL = "http://192.168.1.48:11434";   // ← ton IP PC
+    const MODEL     = "dolphin-mistral:7b";            // ← change si besoin (ex: llama3.2, mistral, etc.)
+
+    let messages = [];  // [{role:"user", content:"..."}, {role:"assistant", content:"..."}]
+
+    const messagesDiv = document.getElementById("messages");
+    const promptInput = document.getElementById("prompt");
+    const sendBtn    = document.getElementById("send");
+
+    function addMessage(role, content = "", isStreaming = false) {
+      const div = document.createElement("div");
+      div.className = `message ${role}`;
+      if (isStreaming) div.classList.add("typing");
+      div.textContent = content;
+      messagesDiv.appendChild(div);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      return div;
+    }
+
+    function scrollToBottom() {
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    async function sendMessage() {
+      const text = promptInput.value.trim();
+      if (!text) return;
+
+      // Ajoute message utilisateur
+      addMessage("user", text);
+      messages.push({ role: "user", content: text });
+      promptInput.value = "";
+      sendBtn.disabled = true;
+
+      // Prépare le message assistant qui va streamer
+      const assistantDiv = addMessage("assistant", "", true);
+      let fullResponse = "";
+
+      try {
+        const res = await fetch(`${OLLAMA_URL}/api/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: MODEL,
+            messages: messages,
+            stream: true,
+            options: { temperature: 0.7 }
+          })
+        });
+
+        if (!res.ok) throw new Error("Erreur Ollama");
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split("\n").filter(Boolean);
+
+          for (const line of lines) {
+            try {
+              const parsed = JSON.parse(line);
+              if (parsed.message?.content) {
+                fullResponse += parsed.message.content;
+                assistantDiv.textContent = fullResponse;
+                scrollToBottom();
+              }
+              if (parsed.done) {
+                assistantDiv.classList.remove("typing");
+              }
+            } catch {}
+          }
+        }
+
+        messages.push({ role: "assistant", content: fullResponse });
+      } catch (err) {
+        assistantDiv.textContent = "Erreur : " + err.message;
+        assistantDiv.classList.remove("typing");
+      }
+
+      sendBtn.disabled = false;
+      promptInput.focus();
+    }
+
+    // Envoi avec bouton
+    sendBtn.onclick = sendMessage;
+
+    // Envoi avec Enter (mais Shift+Enter pour saut de ligne)
+    promptInput.addEventListener("keydown", e => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    // Focus auto au chargement
+    promptInput.focus();
+  </script>
+</body>
+</html>
