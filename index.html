@@ -81,7 +81,7 @@
 
   <script>
     const OLLAMA_URL = "http://192.168.1.48:11434";
-    const MODEL     = "dolphin-mistral:7b";  // ou ton modèle préféré
+    const MODEL     = "dolphin-mistral:7b";  // change si besoin
 
     let messages = [];
 
@@ -160,7 +160,7 @@
       }
 
       sendBtn.disabled = false;
-      // PAS de promptInput.focus() ici → le clavier ne s'ouvre plus automatiquement
+      // AUCUN focus ici → clavier reste fermé
     }
 
     sendBtn.onclick = sendMessage;
@@ -172,8 +172,7 @@
       }
     });
 
-    // Focus uniquement au chargement initial de la page
-    promptInput.focus();
+    // PAS DE focus() ici non plus → le clavier ne s'ouvre jamais automatiquement
   </script>
 </body>
 </html>
