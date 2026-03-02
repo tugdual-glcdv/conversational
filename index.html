@@ -37,7 +37,7 @@
     .assistant {
       align-self: flex-start;
       background: #333;
-      color: #eee;          /* même couleur que le texte final */
+      color: #eee;
     }
     #input-area {
       padding: 12px;
@@ -98,8 +98,7 @@
     }
 
     function scrollToBottomIfNeeded() {
-      // On scroll seulement si l'utilisateur est déjà en bas (ou presque)
-      const threshold = 100; // pixels
+      const threshold = 100;
       if (messagesDiv.scrollHeight - messagesDiv.scrollTop - messagesDiv.clientHeight < threshold) {
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
       }
@@ -109,13 +108,11 @@
       const text = promptInput.value.trim();
       if (!text) return;
 
-      // Message utilisateur
       addMessage("user", text);
       messages.push({ role: "user", content: text });
       promptInput.value = "";
       sendBtn.disabled = true;
 
-      // Message assistant (on commence vide)
       const assistantDiv = addMessage("assistant", "");
       let fullResponse = "";
 
@@ -149,10 +146,8 @@
               if (parsed.message?.content) {
                 fullResponse += parsed.message.content;
                 assistantDiv.textContent = fullResponse;
-                // Pas de scroll automatique ici → on laisse l'utilisateur lire tranquillement
               }
               if (parsed.done) {
-                // Une fois fini → scroll final si l'utilisateur était déjà en bas
                 scrollToBottomIfNeeded();
               }
             } catch {}
@@ -165,7 +160,7 @@
       }
 
       sendBtn.disabled = false;
-      promptInput.focus();
+      // PAS de promptInput.focus() ici → le clavier ne s'ouvre plus automatiquement
     }
 
     sendBtn.onclick = sendMessage;
@@ -177,6 +172,7 @@
       }
     });
 
+    // Focus uniquement au chargement initial de la page
     promptInput.focus();
   </script>
 </body>
