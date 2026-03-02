@@ -37,7 +37,7 @@
     .assistant {
       align-self: flex-start;
       background: #333;
-      color: #eee;
+      color: #eee;          /* même couleur que le texte final */
     }
     #input-area {
       padding: 12px;
@@ -68,12 +68,6 @@
     button:disabled {
       opacity: 0.5;
     }
-    .typing {
-      font-style: italic;
-      color: #888;
-      align-self: flex-start;
-      padding: 12px 16px;
-    }
   </style>
 </head>
 <body>
@@ -86,41 +80,43 @@
   </div>
 
   <script>
-    const OLLAMA_URL = "http://192.168.1.48:11434";   // ← ton IP PC
-    const MODEL     = "dolphin-mistral:7b";            // ← change si besoin (ex: llama3.2, mistral, etc.)
+    const OLLAMA_URL = "http://192.168.1.48:11434";
+    const MODEL     = "dolphin-mistral:7b";  // ou ton modèle préféré
 
-    let messages = [];  // [{role:"user", content:"..."}, {role:"assistant", content:"..."}]
+    let messages = [];
 
     const messagesDiv = document.getElementById("messages");
     const promptInput = document.getElementById("prompt");
-    const sendBtn    = document.getElementById("send");
+    const sendBtn     = document.getElementById("send");
 
-    function addMessage(role, content = "", isStreaming = false) {
+    function addMessage(role, content = "") {
       const div = document.createElement("div");
       div.className = `message ${role}`;
-      if (isStreaming) div.classList.add("typing");
       div.textContent = content;
       messagesDiv.appendChild(div);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
       return div;
     }
 
-    function scrollToBottom() {
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    function scrollToBottomIfNeeded() {
+      // On scroll seulement si l'utilisateur est déjà en bas (ou presque)
+      const threshold = 100; // pixels
+      if (messagesDiv.scrollHeight - messagesDiv.scrollTop - messagesDiv.clientHeight < threshold) {
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      }
     }
 
     async function sendMessage() {
       const text = promptInput.value.trim();
       if (!text) return;
 
-      // Ajoute message utilisateur
+      // Message utilisateur
       addMessage("user", text);
       messages.push({ role: "user", content: text });
       promptInput.value = "";
       sendBtn.disabled = true;
 
-      // Prépare le message assistant qui va streamer
-      const assistantDiv = addMessage("assistant", "", true);
+      // Message assistant (on commence vide)
+      const assistantDiv = addMessage("assistant", "");
       let fullResponse = "";
 
       try {
@@ -135,7 +131,7 @@
           })
         });
 
-        if (!res.ok) throw new Error("Erreur Ollama");
+        if (!res.ok) throw new Error(`Erreur ${res.status}`);
 
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
@@ -153,10 +149,11 @@
               if (parsed.message?.content) {
                 fullResponse += parsed.message.content;
                 assistantDiv.textContent = fullResponse;
-                scrollToBottom();
+                // Pas de scroll automatique ici → on laisse l'utilisateur lire tranquillement
               }
               if (parsed.done) {
-                assistantDiv.classList.remove("typing");
+                // Une fois fini → scroll final si l'utilisateur était déjà en bas
+                scrollToBottomIfNeeded();
               }
             } catch {}
           }
@@ -165,17 +162,14 @@
         messages.push({ role: "assistant", content: fullResponse });
       } catch (err) {
         assistantDiv.textContent = "Erreur : " + err.message;
-        assistantDiv.classList.remove("typing");
       }
 
       sendBtn.disabled = false;
       promptInput.focus();
     }
 
-    // Envoi avec bouton
     sendBtn.onclick = sendMessage;
 
-    // Envoi avec Enter (mais Shift+Enter pour saut de ligne)
     promptInput.addEventListener("keydown", e => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
@@ -183,7 +177,6 @@
       }
     });
 
-    // Focus auto au chargement
     promptInput.focus();
   </script>
 </body>
